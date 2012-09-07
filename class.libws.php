@@ -70,9 +70,9 @@ class libws extends blowfish {
 			reset($this->bridge);
 		}
 
-		foreach (w('wsdl mysql php facebook') as $row) {
+		foreach (w('?wsdl mysql:// php:// facebook://') as $row) {
 			if (!is_array($url) && strpos($url, $row) !== false) {
-				$this->type = $row;
+				$this->type = preg_replace('/.*?([a-z]+).*?/i', '\1', $row);
 
 				if ($row == 'wsdl') $wsdl = true;
 				break;
@@ -141,8 +141,12 @@ class libws extends blowfish {
 		
 		return $a;
 	}
+
+	public function _v($v) {
+		return $this->_param_replace('#' . $v);
+	}
 	
-	public function _param_replace($arg) {
+	private function _param_replace($arg) {
 		$arg = (is_object($arg)) ? (array) $arg : $arg;
 
 		if (is_array($arg)) {
@@ -441,6 +445,32 @@ class libws extends blowfish {
 		
 		return false;
 	}
+
+	public function __sso_search($criteria) {
+		$token = $this->authenticate(array(
+			'username' => '#SSO_USER',
+			'password' => '#SSO_PASS')
+		);
+
+		if (!count($token)) {
+			return array('timeout' => true);
+		}
+		
+		if (isset($token->token_id)) {
+			$user = $this->search(array(
+				'name' => $criteria,
+				'admin' => $token->token_id)
+			);
+			
+			$out = $this->logout(array(
+				'subjectid' => $token->token_id)
+			);
+
+			return $user;
+		}
+		
+		return false;
+	}
 	
 	public function _() {
 		$this->origin = false;
@@ -640,18 +670,6 @@ class libws extends blowfish {
 				}
 
 				unset($facebook);
-
-				/*
-				$feed = array(
-					//$facebook->api($page)
-					//$facebook->api('/228224130571301')
-				);
-
-				$attr = array(
-					'access_token' => '125858306409|f1e0c20bc063e5f9a0c89615.1-1134314335|48722647107|JOI6oOl4sdhfX8Xf-rU3MfRwl70',
-					'message' => 'Coca Cola!'
-				);
-				$feed['kamil'] = $facebook->api('/40796308305/posts/10150378826523306', 'post', $attr);*/
 				break;
 			default:
 				$send_var = w('sso mysql php facebook');
@@ -695,8 +713,6 @@ class libws extends blowfish {
 						break;
 				}
 
-				// _pre($arg, true);
-
 				$_arg = $arg;
 				$arg = ($this->type == 'sso') ? $this->_build($arg, false) : __encode($arg);
 
@@ -728,8 +744,8 @@ class libws extends blowfish {
 							SSO type
 							*/
 							case 'sso':
-								if (preg_match('#<body>(.*?)</body>#i', $response, $response_part)) {
-									preg_match('#<p><b>description</b>(.*?)</p>#i', $response_part[1], $status);
+								if (preg_match('#<body>(.*?)</body>#i', $response, $part)) {
+									preg_match('#<p><b>description</b>(.*?)</p>#i', $part[1], $status);
 									
 									$response = array(
 										'url' => $_url,
@@ -739,22 +755,10 @@ class libws extends blowfish {
 								} else {
 									switch($method) {
 										case 'search':
+											preg_match_all('/string\=(.*?)\n/i', $response, $response_all);
+											$response = $response_all[1];
 											break;
 										default:
-											$first_parts = explode('&', substr($response, 0, -1));
-											
-											$ret = w();
-											foreach ($first_parts as $v) {
-												$second_parts = explode('=', $v);
-									
-												if (!isset($second_parts[1])) {
-													continue;
-												}
-												
-												$second_parts[0] = str_replace('.', '_', $second_parts[0]);
-												$ret[$second_parts[0]] = $second_parts[1];
-											}
-
 											$response = $this->_format($response);
 											break;
 									}
@@ -771,12 +775,6 @@ class libws extends blowfish {
 									$response = (!empty($response)) ? $response : $_curl->inf;
 
 									$_json = $response;
-
-									/*$_json = array(
-										'url' => $_url,
-										'error' => 500,
-										'message' => $response
-									);*/
 								}
 								
 								$response = $_json;
@@ -802,7 +800,7 @@ class libws extends blowfish {
 			$response = json_encode($response);
 		}
 
-		if ($this->type == 'sso' || $this->unique) {
+		if (($this->type == 'sso' && $this->unique) || ($this->type != 'sso' && $this->unique)) {
 			$response = json_decode($response);
 		}
 
@@ -835,7 +833,7 @@ function w($a = '', $d = false) {
 
 function array_change_key_case_recursive($input, $case = null) {
 	if (!is_array($input)) {
-		trigger_error("Invalid input array '{$array}'",E_USER_NOTICE); exit;
+		trigger_error("Invalid input array '{$input}'",E_USER_NOTICE); exit;
 	}
 
 	// CASE_UPPER|CASE_LOWER
