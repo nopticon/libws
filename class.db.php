@@ -16,33 +16,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-class dcom {
-	protected $connect;
-	protected $result;
-	protected $history;
-	protected $row;
-	protected $rowset;
-	protected $queries;
-	protected $noerror;
-	
-	protected $_access = array();
-	
-	final protected function access($d = false) {
-		if ($d === false) {
-			$d = decode_ht('.htda');
-		} else {
-			$d = explode(',', decode($d));
-		}
-		
-		foreach (w('server login secret database') as $i => $k) {
-			$this->_access[$k] = decode($d[$i]);
-		}
-		unset($d);
-		
-		return;
-	}
-}
-
 function decode_ht($path) {
 	$da_path = './' . $path;
 	

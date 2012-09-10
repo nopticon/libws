@@ -67,7 +67,7 @@ class libws extends blowfish {
 
 		foreach (w('?wsdl mysql:// php:// facebook://') as $row) {
 			if (!is_array($url) && strpos($url, $row) !== false) {
-				$this->type = preg_replace('/.*?([a-z]+).*?/i', '\1', $row);
+				$this->type = preg_replace('/[^a-z]/', '', $row);
 				break;
 			}
 		}
@@ -229,12 +229,13 @@ class libws extends blowfish {
 	public function __enrichment($override = false) {
 		static $number;
 
+		$f = 'HTTP_X_NOKIA_MSISDN';
 		if ($override !== false) {
-			$_SERVER['HTTP_X_NOKIA_MSISDN'] = $override;
+			$_SERVER[$f] = $override;
 		}
 
 		if (!isset($number)) {
-			$number = (isset($_SERVER['HTTP_X_NOKIA_MSISDN']) && !empty($_SERVER['HTTP_X_NOKIA_MSISDN'])) ? $_SERVER['HTTP_X_NOKIA_MSISDN'] : '';
+			$number = (isset($_SERVER[$f]) && !empty($_SERVER[$f])) ? $_SERVER[$f] : '';
 		}
 
 		preg_match('/(\d{3})(\d+)/i', $number, $part);
@@ -572,12 +573,16 @@ class libws extends blowfish {
 				require_once('class.mysql.php');
 				$db = new database($connect);
 
-				if (count($arg) > 1) {
-					$sql = array_shift($arg);
-					$arg = sql_filter($sql, $arg);
-				}
+				if ($db === true) {
+					if (count($arg) > 1) {
+						$sql = array_shift($arg);
+						$arg = sql_filter($sql, $arg);
+					}
 
-				$response = (@function_exists($method)) ? $method($arg) : array('error' => true, 'message' => $method . ' is undefined');
+					$response = (@function_exists($method)) ? $method($arg) : array('error' => true, 'message' => $method . ' is undefined');
+				} else {
+					$response = array('url' => $_url, 'error' => 500, 'message' => $db->message);
+				}
 				break;
 			case 'php':
 				if (isset($arg['_php'])) {

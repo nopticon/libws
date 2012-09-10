@@ -18,16 +18,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 require_once('class.db.php');
 
-class database extends dcom {
-	public function __construct($d = false) {
-		$this->access($d);
+class database {
+	private $connect;
+	private $result;
+	private $history;
+	private $row;
+	private $rowset;
+	private $queries;
+	private $noerror;
+	public $message;
 
-		$this->connect = new mysqli($this->_access['server'], $this->_access['login'], $this->_access['secret'], $this->_access['database']);
+	public function __construct($d = false) {
+		$d = ($d === false) ? decode_ht('.htda') : explode(',', decode($d));
+		
+		foreach (w('server login secret database') as $i => $k) {
+			$d[$k] = decode($d[$i]);
+		}
+
+		@$this->connect = new mysqli($d['server'], $d['login'], $d['secret'], $d['database']);
 		
 		if ($this->connect->connect_error) {
-			exit('330');
+			$this->message = $this->connect->connect_error;
+			return false;
 		}
-		unset($this->_access);
+		unset($d);
 		
 		return true;
 	}
@@ -128,8 +142,7 @@ class database extends dcom {
 			return false;
 		}
 		
-		$fields = array();
-		$values = array();
+		$fields = $values = array();
 		
 		switch ($query) {
 			case 'INSERT':
@@ -462,8 +475,7 @@ class database extends dcom {
 	}
 	
 	public function set_error($error = -1) {
-		if ($error !== -1)
-		{
+		if ($error !== -1) {
 			$this->noerror = $error;
 		}
 		
