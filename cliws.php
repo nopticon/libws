@@ -8,7 +8,6 @@ require_once('class.blowfish.php');
 class libws extends blowfish {
 	private $ws;
 	private $url;
-	private $wsdl;
 	private $origin;
 	private $client;
 	private $destiny;
@@ -20,17 +19,14 @@ class libws extends blowfish {
 	private $object;
 	private $type;
 	
-	public function __construct($url = '', $wsdl = 0) {
+	public function __construct($url = '') {
 		if (is_array($url)) {
 			$this->params = $this->bridge = $url;
 			$url = $url[0];
 		}
 		
-		$ini_bridge = '';
 		if (strpos($url, '://') === false) {
-			if (empty($url)) {
-				$url = 'libws';
-			}
+			$url = (!empty($url)) ? $url : 'libws';
 			
 			if (strpos($url, ':') !== false) {
 				$ini_bridge_part = explode(':', $url);
@@ -44,8 +40,7 @@ class libws extends blowfish {
 			$ini_bridge = strtoupper($ini_bridge);
 			$ini_file_path = dirname(__FILE__) . '/';
 
-			$level = array_merge(array(''), w('./ ../ ../../ ../../../'));
-			foreach ($level as $path) {
+			foreach (w(' ./ ../', false, 'rtrim') as $path) {
 				$ini_file = $path . 'ini.' . $url . '.php';
 
 				if (!empty($path)) {
@@ -58,7 +53,7 @@ class libws extends blowfish {
 				}
 			}
 
-			if (!is_array($this->params) || !isset($this->params[$ini_bridge])) {
+			if (!isset($this->params[$ini_bridge])) {
 				return false;
 			}
 
@@ -73,14 +68,11 @@ class libws extends blowfish {
 		foreach (w('?wsdl mysql:// php:// facebook://') as $row) {
 			if (!is_array($url) && strpos($url, $row) !== false) {
 				$this->type = preg_replace('/.*?([a-z]+).*?/i', '\1', $row);
-
-				if ($row == 'wsdl') $wsdl = true;
 				break;
 			}
 		}
 
 		$this->url = $url;
-		$this->wsdl = $wsdl;
 		$this->origin = true;
 		$this->unique = true;
 
@@ -128,22 +120,22 @@ class libws extends blowfish {
 		return $this->server;
 	}
 
+	public function _v($v) {
+		return $this->_param_replace('#' . $v);
+	}
+
 	private function _filter($response) {
-		$a = array();
+		$a = w();
 
 		if (!is_array($response)) {
 			$response = array($response);
 		}
 
 		foreach ($response as $i => $row) {
-			$a[$i] = is_array($row) ? $this->_filter($row) : str_replace(array('&lt;', '&gt;'), array('<', '>'), /*htmlentities(*/utf8_encode($row)/*, ENT_COMPAT, 'utf-8')*/);
+			$a[$i] = is_array($row) ? $this->_filter($row) : str_replace(w('&lt; &gt;'), w('< >'), utf8_encode($row));
 		}
 		
 		return $a;
-	}
-
-	public function _v($v) {
-		return $this->_param_replace('#' . $v);
 	}
 	
 	private function _param_replace($arg) {
@@ -188,7 +180,7 @@ class libws extends blowfish {
 		$attr = 'identitydetails.attribute';
 
 		$open = false;
-		$response = array();
+		$response = w();
 		foreach ($parts[1] as $i => $name) {
 			$value = $parts[2][$i];
 
@@ -475,7 +467,6 @@ class libws extends blowfish {
 	public function _() {
 		$this->origin = false;
 		$this->unique = false;
-
 		$method = $_REQUEST['_method'];
 
 		unset($_REQUEST['_method']);
@@ -527,14 +518,13 @@ class libws extends blowfish {
 		}
 
 		$_bridge = $this->bridge;
-		$_url = $this->url;
-
 		$count_bridge = count($_bridge);
+		$_url = $this->url;
 		$response = null;
 
 		switch ($this->type) {
 			case 'wsdl':
-				$this->client = new nusoap_client($this->url, $this->wsdl);
+				$this->client = new nusoap_client($this->url, true);
 
 				if ($error = $this->client->getError()) {
 					echo 'Client error: ' . $error;
@@ -544,10 +534,9 @@ class libws extends blowfish {
 				$response = $this->client->call($method, $arg);
 				
 				// Check if there were any call errors, and if so, return error messages.
-				if ($this->client->getError()) {
+				if ($error = $this->client->getError()) {
 					$response = $this->client->response;
-					$response = substr($response, strpos($response, '<?xml'));
-					$response = xml2array($response);
+					$response = xml2array(substr($response, strpos($response, '<?xml')));
 					
 					if (isset($response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'])) {
 						$fault_string = $response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'];
@@ -555,7 +544,7 @@ class libws extends blowfish {
 						$response = explode("\n", $fault_string);
 						$response = $response[0];
 					} else {
-						$response = $this->client->getError();
+						$response = $error;
 					}
 					
 					$response = array(
@@ -817,10 +806,10 @@ class libws extends blowfish {
 //
 // General functions
 //
-function w($a = '', $d = false) {
+function w($a = '', $d = false, $del = 'trim') {
 	if (empty($a) || !is_string($a)) return array();
 	
-	$e = explode(' ', trim($a));
+	$e = explode(' ', $del($a));
 	if ($d !== false) {
 		foreach ($e as $i => $v) {
 			$e[$v] = $d;
@@ -904,7 +893,7 @@ function __decode($arg) {
 	return $arg;
 }
 
-function __($url = '', $wsdl = 0) {
+function __($url = '') {
 	if (!isset($_REQUEST)) {
 		exit;
 	}
@@ -914,20 +903,7 @@ function __($url = '', $wsdl = 0) {
 		exit;
 	}
 	
-	$url = explode('|', $_REQUEST['_chain']);
-	$wsdl = 0;
-	
-	if (count($url) == 1 && preg_match('#wsdl(\=(true|false))?$#is', $url[0], $part)) {
-		if (isset($part[2])) {
-			$url[0] = str_replace('=' . $part[2], '', $url[0]);
-		} else {
-			$part[2] = 1;
-		}
-		
-		$wsdl = ($part[2] == 'false') ? false : true;
-	}
-
-	$ws = new libws($url, $wsdl);
+	$ws = new libws(explode('|', $_REQUEST['_chain']));
 	return $ws->_();
 }
 

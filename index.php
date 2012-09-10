@@ -1,6 +1,6 @@
 <?php
 
-require_once('./class.libws.php');
+require_once('./cliws.php');
 __();
 
 ?>
