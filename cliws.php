@@ -65,7 +65,7 @@ class libws extends blowfish {
 			reset($this->bridge);
 		}
 
-		foreach (w('?wsdl mysql:// php:// facebook://') as $row) {
+		foreach (w('?wsdl mysql:// php:// facebook:// email://') as $row) {
 			if (!is_array($url) && strpos($url, $row) !== false) {
 				$this->type = preg_replace('/[^a-z]/', '', $row);
 				break;
@@ -665,8 +665,11 @@ class libws extends blowfish {
 
 				unset($facebook);
 				break;
+			case 'email':
+				$response = $arg;
+				break;
 			default:
-				$send_var = w('sso mysql php facebook');
+				$send_var = w('sso mysql php facebook email');
 				$send = new stdClass;
 
 				if ($count_bridge == 1 && $_bridge[0] === $_url) {
