@@ -666,6 +666,10 @@ class libws extends blowfish {
 				unset($facebook);
 				break;
 			case 'email':
+				require_once('class.emailer.php');
+
+				$emailer = new emailer();
+
 				$response = $arg;
 				break;
 			default:
