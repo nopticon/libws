@@ -57,6 +57,19 @@ function prefix($prefix, $arr) {
 	return $a;
 }
 
+function array_unshift_assoc(&$arr, $key, $val) {
+   $arr = array_reverse($arr, true);
+   $arr[$key] = $val;
+   $arr = array_reverse($arr, true);
+   return $arr;
+}
+
+function array_shiftname(&$arr, $unset = false) {
+	list($k) = array_keys($arr);
+	
+	return $k;
+}
+
 // Database filter layer
 // Idea from http://us.php.net/manual/en/function.sprintf.php#93156
 function sql_filter() {
@@ -144,6 +157,12 @@ function sql_transaction($status = 'begin') {
 	return $db->transaction($status);
 }
 
+function sql_desc($table) {
+	global $db;
+
+	return $db->desc($table);
+}
+
 function sql_field($sql, $field, $def = false) {
 	global $db;
 	
@@ -153,10 +172,6 @@ function sql_field($sql, $field, $def = false) {
 	
 	if ($response === false) {
 		$response = $def;
-	}
-	
-	if ($response !== false) {
-		$response = $response;
 	}
 	
 	return $response;
@@ -170,7 +185,7 @@ function sql_fieldrow($sql, $result_type = MYSQL_ASSOC) {
 	$response = false;
 	if ($row = $db->fetchrow($result_type)) {
 		$row['_numrows'] = $db->numrows();
-		$response = $row;
+		$response = array_change_key_case($row, CASE_LOWER);
 	}
 	$db->freeresult();
 	
@@ -181,12 +196,18 @@ function sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQL
 	global $db;
 	
 	$db->query($sql);
+
+	if (!empty($db->message)) {
+		return $db->message;
+	}
+
 	if (!$data = $db->fetchrowset($type)) {
 		return false;
 	}
 	
 	$arr = w();
 	foreach ($data as $row) {
+		$row = array_change_key_case($row, CASE_LOWER);
 		$data = ($b === false) ? $row : $row[$b];
 		
 		if ($a === false) {
@@ -276,7 +297,7 @@ function sql_build($cmd, $a, $b = false) {
 		$a = $_a;
 	}
 	
-	return '/***/' . $db->build($cmd, $a, $b);
+	return $db->build($cmd, $a, $b);
 }
 
 function sql_cache($sql, $sid = '', $private = true) {

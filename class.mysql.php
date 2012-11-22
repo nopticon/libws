@@ -35,14 +35,16 @@ class database {
 			$d[$k] = decode($d[$i]);
 		}
 
-		@$this->connect = new mysqli($d['server'], $d['login'], $d['secret'], $d['database']);
-		
+		$this->connect = @new mysqli($d['server'], $d['login'], $d['secret'], $d['database']);
+
 		if ($this->connect->connect_error) {
 			$this->message = $this->connect->connect_error;
+
+			$this->sql_error();
 			return false;
 		}
 		unset($d);
-		
+
 		return true;
 	}
 	
@@ -74,6 +76,14 @@ class database {
 		
 		return true;
 	}
+
+	/**
+	* Describe the structure of a table
+	*/
+	public function desc($table) {
+		$sql = 'DESCRIBE ??';
+		return sql_rowset(sql_filter($sql, $table), false, 'COLUMN_NAME');
+	}
 	
 	public function query($query = '', $transaction = false) {
 		if (is_array($query)) {
@@ -94,13 +104,11 @@ class database {
 			$this->history[] = $query;
 			
 			if (!$this->result = $this->connect->query($query)) {
-				$this->error($query);
+				$this->sql_error($query);
 				
 				return false;
 			}
-			
-			//$this->registry($query);
-			// unset($this->row[$this->result], $this->rowset[$this->result]);
+
 			return $this->result;
 		}
 		
@@ -157,8 +165,13 @@ class database {
 						$values[] = (is_bool($var)) ? intval($var) : $var;
 					}
 				}
+
+				$query = '';
+				if ($update_field !== false) {
+					$query .= 'INSERT INTO ' . $update_field;
+				}
 				
-				$query = ' (' . implode(', ', $fields) . ') VALUES (' . implode(', ', $values) . ')';
+				$query .= ' /***/ (' . implode(', ', $fields) . ') VALUES (' . implode(', ', $values) . ')';
 				break;
 			case 'UPDATE':
 			case 'SELECT':
@@ -177,7 +190,7 @@ class database {
 						$values[] = (is_bool($var)) ? "$key = " . intval($var) : "$key = $var";
 					}
 				}
-				$query = implode(($query == 'UPDATE') ? ', ' : ' AND ', $values);
+				$query = '/***/' . implode(($query == 'UPDATE') ? ', ' : ' AND ', $values);
 				break;
 		}
 		
@@ -482,18 +495,29 @@ class database {
 		return $this->noerror;
 	}
 	
-	public function error($sql = '') {
+	public function sql_error($sql = '') {
 		$sql_error = $this->connect->error;
 		$sql_errno = $this->connect->errno;
 
-		$error = array('sql' => $sql, 'message' => $sql_error, 'code' => $sql_errno);
+		if (!empty($this->message)) {
+			$sql_error = $this->message;
+		}
+
+		$error = array(
+			'type' => 'mysql',
+			'message' => array(
+				'code' => $sql_errno,
+				'message' => $sql_error,
+				'offset' => 0,
+				'sqltext' => $sql
+			)
+		);
 		
 		if (!$this->noerror) {
 			$xml = xml($error);
 			error_log($xml);
 
-			echo $xml;
-			exit;
+			$this->message = $error;
 		}
 
 		return $error;

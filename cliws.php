@@ -65,7 +65,7 @@ class libws extends blowfish {
 			reset($this->bridge);
 		}
 
-		foreach (w('?wsdl mysql:// php:// facebook:// email://') as $row) {
+		foreach (w('?wsdl mysql:// oracle:// php:// facebook:// email://') as $row) {
 			if (!is_array($url) && strpos($url, $row) !== false) {
 				$this->type = preg_replace('/[^a-z]/', '', $row);
 				break;
@@ -573,15 +573,114 @@ class libws extends blowfish {
 				require_once('class.mysql.php');
 				$db = new database($connect);
 
-				if ($db === true) {
-					if (count($arg) > 1) {
-						$sql = array_shift($arg);
-						$arg = sql_filter($sql, $arg);
+				if (empty($db->message)) {
+					switch ($method) {
+						case 'sql_field':
+						case 'sql_build':
+							break;
+						default:
+							if (count($arg) > 1) {
+								$sql = array_shift($arg);
+								$arg = sql_filter($sql, $arg);
+							}
+							break;
 					}
 
-					$response = (@function_exists($method)) ? $method($arg) : array('error' => true, 'message' => $method . ' is undefined');
-				} else {
+					$response = (@function_exists($method)) ? false : array('error' => true, 'message' => $method . ' is undefined');
+
+					if ($response === false) {
+						switch ($method) {
+							case 'sql_field':
+							case 'sql_build':
+								extract($arg, EXTR_PREFIX_ALL, 'sf');
+
+								$arg_v = '';
+								foreach ($arg as $i => $row) {
+									$arg_v .= (($arg_v) ? ', ' : '') . '$sf_' . $i;
+								}
+
+								eval('$response = $method(' . $arg_v . ');');
+								break;
+							default:
+								$response = $method($arg);
+								break;
+						}
+					}
+				}/* else {
 					$response = array('url' => $_url, 'error' => 500, 'message' => $db->message);
+				}*/
+
+				if (!empty($db->message)) {
+					$response = $db->message;
+				}
+				break;
+			case 'oracle':
+				if (isset($arg['_oracle'])) {
+					$this->params['_ORACLE'] = $arg['_oracle'];
+					unset($arg['_oracle']);
+				}
+
+				$connect = (isset($this->params['_ORACLE']) && $this->params['_ORACLE']) ? $this->params['_ORACLE'] : '';
+
+				if (empty($arg)) {
+					return false;
+				}
+
+				global $db;
+
+				require_once('class.oracle.php');
+				$db = new database($connect);
+
+				if (empty($db->message)) {
+					switch ($method) {
+						case 'sql_field':
+						case 'sql_build':
+							break;
+						default:
+							if (count($arg) > 1) {
+								$sql = array_shift($arg);
+								$arg = sql_filter($sql, $arg);
+							}
+							break;
+					}
+
+					//$response = (@function_exists($method)) ? $method($arg) : array('error' => true, 'message' => $method . ' is undefined');
+					$response = (@function_exists($method)) ? false : array('error' => true, 'message' => $method . ' is undefined');
+
+					if ($response === false) {
+						switch ($method) {
+							case 'sql_field':
+							case 'sql_build':
+								extract($arg, EXTR_PREFIX_ALL, 'sf');
+
+								$arg_v = '';
+								foreach ($arg as $i => $row) {
+									$arg_v .= (($arg_v) ? ', ' : '') . '$sf_' . $i;
+								}
+
+								eval('$response = $method(' . $arg_v . ');');
+								break;
+							default:
+								$response = $method($arg);
+								break;
+						}
+					}
+				}
+
+				if (!isset($response['error']) && is_array($response)) {
+					if (isset($response[0]) && is_array($response[0])) {
+						foreach ($response as $i => $row) {
+							if (is_array($row)) {
+								$response[$i] = array_change_key_case($row, CASE_LOWER);
+							}
+						}
+					} else {
+						$response = array_change_key_case($response, CASE_LOWER);
+					}
+				}
+
+				if (!empty($db->message)) {
+					$response = $db->message;
 				}
 				break;
 			case 'php':
@@ -606,9 +705,14 @@ class libws extends blowfish {
 					case 'tail':
 					case 'cat':
 					case 'ping':
-					case 'exec':
 						if ($response === null) {
 							exec($method . ' ' . implode(' ', $arg), $print);
+							$response = implode("\r\n", $print);
+						}
+						break;
+					case 'exec':
+						if ($response === null) {
+							$method(implode(' ', $arg), $print);
 							$response = implode("\r\n", $print);
 						}
 						break;
@@ -666,14 +770,62 @@ class libws extends blowfish {
 				unset($facebook);
 				break;
 			case 'email':
-				require_once('class.emailer.php');
+				if (isset($arg['_email'])) {
+					$this->params['_EMAIL'] = $arg['_email'];
+					unset($arg['_email']);
+				}
 
-				$emailer = new emailer();
+				$response = false;
 
-				$response = $arg;
+				if (!isset($arg['to'])) {
+					$response = 'NO_TO_ADDRESS';
+				}
+
+				if ($response === false && !isset($arg['from'])) {
+					$response = 'NO_FROM_ADDRESS';
+				}
+
+				if ($response === false) {
+					if (!is_array($arg['to'])) {
+						$arg['to'] = array($arg['to']);
+					}
+
+					preg_match_all('!("(.*?)"\s+<\s*)?(.*?)(\s*>)?!', $arg['from'], $matches);
+					/*$response = array();
+					for ($i=0; $i<count($matches[0]); $i++) {
+						$response[] = array(
+							'name' => $matches[1][$i],
+							'email' => $matches[2][$i],
+						);
+					}*/
+
+					$response = $matches;
+
+
+					// Create Mail object
+					/*$mail = new phpmailer();
+
+					$mail->PluginDir = '';
+					$mail->Mailer = 'smtp';
+					$mail->Host = $this->params['_EMAIL'];
+					$mail->SMTPAuth = false;
+					$mail->From = $from;
+					$mail->FromName = "Claro";
+					$mail->Timeout = 30;*/
+
+					foreach ($arg['to'] as $row) {
+						//$mail->AddAddress($row);
+					}
+				}
+
+				//require_once('class.email.php');
+
+				//$emailer = new emailer();
+
+				//$response = print_r($arg, true);
 				break;
 			default:
-				$send_var = w('sso mysql php facebook email');
+				$send_var = w('sso mysql oracle php facebook email');
 				$send = new stdClass;
 
 				if ($count_bridge == 1 && $_bridge[0] === $_url) {
