@@ -37,13 +37,25 @@ class libws extends blowfish {
 				$ini_bridge = $url;
 			}
 
+			if (strpos($ini_bridge, '/') !== false) {
+				$ini_bridge = array_pop(explode('/', $ini_bridge));
+			}
+
 			$ini_bridge = strtoupper($ini_bridge);
 			$ini_file_path = dirname(__FILE__) . '/';
 
 			foreach (w(' ./ ../', false, 'rtrim') as $path) {
+				$url_part = false;
+
+				if (strpos($url, '/') !== false) {
+					$url_part = explode('/', $url);
+					$url = array_pop($url_part);
+					$path .= implode('/', $url_part) . '/';
+				}
+
 				$ini_file = $path . 'ini.' . $url . '.php';
 
-				if (!empty($path)) {
+				if (!empty($path) && $url_part === false) {
 					$ini_file = $ini_file_path . $ini_file;
 				}
 
@@ -77,6 +89,23 @@ class libws extends blowfish {
 		$this->unique = true;
 
 		return true;
+	}
+
+	function recursive_htmlentities($data) {
+		if (is_string($data)) {
+			$data = htmlentities(utf8_encode($data), ENT_QUOTES, "UTF-8");
+			return preg_replace('#&amp;((.*?);)#', '&\1', $data);
+		}
+
+		if (is_array($data) || is_object($data)) {
+			foreach ($data as $key => &$value) {
+				$value = $this->recursive_htmlentities($value);
+			}
+
+			return $data;
+		}
+
+		return $data;
 	}
 
 	public function __ws_construct($app, $object, $namespace = '') {
@@ -253,8 +282,8 @@ class libws extends blowfish {
 			'user' => '#SMS_USER',
 			'pass' => '#SMS_PASS',
 			'area' => $country,
-			'phone' => $phone
-		));
+			'phone' => $phone)
+		);
 		
 		if (isset($is->IsClaro_PhoneResult)) {
 			$response = (int) $is->IsClaro_PhoneResult;
@@ -272,6 +301,28 @@ class libws extends blowfish {
 		
 		return false;
 	}
+
+	public function __claro_is_pc($country, $phone, $by_name = false) {
+		$is = $this->validaTelefono(array(
+			'codigoPais' => $country,
+			'telefono' => $phone) 
+		);
+
+		if (isset($is->validaTelefonoResult->tipoCliente)) {
+			$response = $is->validaTelefonoResult->tipoCliente;
+			
+			if ($by_name !== false) {
+				switch ($response) {
+					case "O":
+					case "M": $response = 'PREP'; break;
+					default: $response 	= 'POST'; break;
+				}
+			}
+			return $response;
+		}
+		
+		return false;
+	}
 	
 	public function __claro_sms($country, $phone, $message) {
 		if ($this->__claro_is($country, $phone)) {
@@ -279,9 +330,9 @@ class libws extends blowfish {
 				'user' => '#SMS_USER',
 				'pass' => '#SMS_PASS',
 				'to_phone' => $country.$phone,
-				'text' => $message
-			));
-			
+				'text' => $message)
+			);
+
 			return true;
 		}
 		
@@ -528,32 +579,31 @@ class libws extends blowfish {
 				$this->client = new nusoap_client($this->url, true);
 
 				if ($error = $this->client->getError()) {
-					echo 'Client error: ' . $error;
-					exit;
+					$response = $error;
+				} else {
+					$response = $this->client->call($method, $arg);
+					
+					// Check if there were any call errors, and if so, return error messages.
+					if ($error = $this->client->getError()) {
+						$response = $this->client->response;
+						$response = xml2array(substr($response, strpos($response, '<?xml')));
+						
+						if (isset($response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'])) {
+							$fault_string = $response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'];
+							
+							$response = explode("\n", $fault_string);
+							$response = $response[0];
+						} else {
+							$response = $error;
+						}
+						
+						$response = array(
+							'error' => true,
+							'message' => $response
+						);
+					}
 				}
 
-				$response = $this->client->call($method, $arg);
-				
-				// Check if there were any call errors, and if so, return error messages.
-				if ($error = $this->client->getError()) {
-					$response = $this->client->response;
-					$response = xml2array(substr($response, strpos($response, '<?xml')));
-					
-					if (isset($response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'])) {
-						$fault_string = $response['soap:Envelope']['soap:Body']['soap:Fault']['faultstring'];
-						
-						$response = explode("\n", $fault_string);
-						$response = $response[0];
-					} else {
-						$response = $error;
-					}
-					
-					$response = array(
-						'error' => true,
-						'message' => $response
-					);
-				}
-				
 				$response = json_decode(json_encode($this->_filter($response)));
 				break;
 			case 'mysql':
@@ -605,10 +655,12 @@ class libws extends blowfish {
 								$response = $method($arg);
 								break;
 						}
+
+						if ($method !== 'sql_filter') {
+							$response = $this->recursive_htmlentities($response);
+						}
 					}
-				}/* else {
-					$response = array('url' => $_url, 'error' => 500, 'message' => $db->message);
-				}*/
+				}
 
 				if (!empty($db->message)) {
 					$response = $db->message;
@@ -702,6 +754,16 @@ class libws extends blowfish {
 				}
 
 				switch ($method) {
+					case 'write':
+						$response = false;
+
+						if ($fp = @fopen($arg[0], $arg[1])) {
+							if (@fwrite($fp, $arg[2]) !== false) {
+								@fclose($fp);
+								$response = true;
+							}
+						}
+						break;
 					case 'tail':
 					case 'cat':
 					case 'ping':
@@ -1067,8 +1129,11 @@ function __($url = '') {
 		exit;
 	}
 	
-	$ws = new libws(explode('|', $_REQUEST['_chain']));
-	return $ws->_();
+	return npi(explode('|', $_REQUEST['_chain']))->_();
+}
+
+function npi($url = '') {
+	return new libws($url);
 }
 
 ?>
