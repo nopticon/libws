@@ -108,6 +108,75 @@ class libws extends blowfish {
 		return $data;
 	}
 
+	// Database filter layer
+	function __prepare() {
+		if (!$args = func_get_args()) {
+			return false;
+		}
+		
+		$sql = array_shift($args);
+		
+		if (is_array($sql)) {
+			$sql_ary = w();
+			foreach ($sql as $row) {
+				$sql_ary[] = $this->__filter($row, $args);
+			}
+			
+			return $sql_ary;
+		}
+		
+		$count_args = count($args);
+		$sql = str_replace('%', '[!]', $sql);
+		
+		if (!$count_args || $count_args < 1) {
+			return str_replace('[!]', '%', $sql);
+		}
+		
+		if ($count_args == 1 && is_array($args[0])) {
+			$args = $args[0];
+		}
+		
+		foreach ($args as $i => $arg) {
+			$args[$i] = (strpos($arg, '/***/') !== false) ? $arg : db_escape_mimic($arg);
+		}
+		
+		foreach ($args as $i => $row) {
+			if (strpos($row, 'addquotes') !== false) {
+				$e_row = explode(',', $row);
+				array_shift($e_row);
+				
+				foreach ($e_row as $j => $jr) {
+					$e_row[$j] = "'" . $jr . "'";
+				}
+				
+				$args[$i] = implode(',', $e_row);
+			}
+		}
+		
+		array_unshift($args, str_replace(w('?? ?'), w("%s '%s'"), $sql));
+		
+		// Conditional deletion of lines if input is zero
+		if (strpos($args[0], '-- ') !== false) {
+			$e_sql = explode("\n\r", $args[0]);
+			
+			$matches = 0;
+			foreach ($e_sql as $i => $row) {
+				$e_sql[$i] = str_replace('-- ', '', $row);
+				if (strpos($row, '%s')) {
+					$matches++;
+				}
+				
+				if (strpos($row, '-- ') !== false && !$args[$matches]) {
+					unset($e_sql[$i], $args[$matches]);
+				}
+			}
+			
+			$args[0] = implode($e_sql);
+		}
+		
+		return str_replace('[!]', '%', _hook('sprintf', $args));
+	}
+
 	public function __ws_construct($app, $object, $namespace = '') {
 		$this->server = new nusoap_server();
 		$this->namespace = (!empty($namespace)) ? $namespace : $this->url;
@@ -1118,6 +1187,51 @@ function __decode($arg) {
 	
 	return $arg;
 }
+
+function _hook($name, $args = array(), $arr = false) {
+	switch ($name) {
+		case 'isset':
+			eval('$a = ' . $name . '($args' . ((is_array($args)) ? '[0]' . $args[1] : '') . ');');
+			return $a;
+			break;
+		case 'in_array':
+			if (is_array($args[1])) {
+				if (_hook('isset', array($args[1][0], $args[1][1]))) {
+					eval('$a = ' . $name . '($args[0], $args[1][0]' . $args[1][1] . ');');
+				}
+			} else {
+				eval('$a = ' . $name . '($args[0], $args[1]);');
+			}
+			
+			return (isset($a)) ? $a : false;
+			break;
+	}
+	
+	$f = 'call_user_func' . ((!$arr) ? '_array' : '');
+	return $f($name, $args);
+}
+
+function _prefix($prefix, $arr) {
+	$prefix = ($prefix != '') ? $prefix . '_' : '';
+	
+	$a = w();
+	foreach ($arr as $k => $v) {
+		$a[$prefix . $k] = $v;
+	}
+	return $a;
+}
+
+function db_escape_mimic($inp) {
+	if (is_array($inp)) {
+		return array_map(__METHOD__, $inp);
+	}
+
+	if (!empty($inp) && is_string($inp)) {
+		return str_replace(array('\\', "\0", "\n", "\r", "'", '"', "\x1a"), array('\\\\', '\\0', '\\n', '\\r', "\\'", '\\"', '\\Z'), $inp);
+	}
+
+	return $inp;
+} 
 
 function __($url = '') {
 	if (!isset($_REQUEST)) {
