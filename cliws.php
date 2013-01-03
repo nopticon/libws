@@ -1231,7 +1231,79 @@ function db_escape_mimic($inp) {
 	}
 
 	return $inp;
-} 
+}
+
+function _htmlencode($str, $multibyte = false) {
+	$result = trim(htmlentities(str_replace(array("\r\n", "\r", '\xFF'), array("\n", "\n", ' '), $str)));
+	
+	if ($multibyte) {
+		$result = preg_replace('#&amp;(\#\d+;)#', '&\1', $result);
+	}
+	$result = preg_replace('#&amp;((.*?);)#', '&\1', $result);
+	
+	return $result;
+}
+
+function _set_var(&$result, $var, $type, $multibyte = false, $regex = '') {
+	settype($var, $type);
+	$result = $var;
+
+	if ($type == 'string') {
+		$result = _htmlencode($result, $multibyte);
+	}
+}
+
+//
+// Get value of request var
+//
+function v($var_name, $default, $multibyte = false, $regex = '') {
+	if (preg_match('/^(files)(\:?(.*?))?$/i', $var_name, $files_data)) {
+		switch ($files_data[1]) {
+			case 'files':
+				$var_name = (isset($files_data[3]) && !empty($files_data[3])) ? $files_data[3] : $files_data[1];
+				
+				$_REQUEST[$var_name] = isset($_FILES[$var_name]) ? $_FILES[$var_name] : $default;
+				break;
+		}
+	}
+	
+	if (!isset($_REQUEST[$var_name]) || (is_array($_REQUEST[$var_name]) && !is_array($default)) || (is_array($default) && !is_array($_REQUEST[$var_name]))) {
+		return (is_array($default)) ? array() : $default;
+	}
+	
+	$var = $_REQUEST[$var_name];
+	
+	if (!is_array($default)) {
+		$type = gettype($default);
+		$var = ($var);
+	} else {
+		list($key_type, $type) = each($default);
+		$type = gettype($type);
+		$key_type = gettype($key_type);
+	}
+	
+	if (is_array($var)) {
+		$_var = $var;
+		$var = array();
+
+		foreach ($_var as $k => $v) {
+			if (is_array($v)) {
+				foreach ($v as $_k => $_v) {
+					_set_var($k, $k, $key_type);
+					_set_var($_k, $_k, $key_type);
+					_set_var($var[$k][$_k], $_v, $type, $multibyte);
+				}
+			} else {
+				_set_var($k, $k, $key_type);
+				_set_var($var[$k], $v, $type, $multibyte);
+			}
+		}
+	} else {
+		_set_var($var, $var, $type, $multibyte);
+	}
+	
+	return $var;
+}
 
 function __($url = '') {
 	if (!isset($_REQUEST)) {
@@ -1242,7 +1314,7 @@ function __($url = '') {
 	if (!isset($_REQUEST['_method']) || !isset($_REQUEST['_chain'])) {
 		exit;
 	}
-	
+
 	return npi(explode('|', $_REQUEST['_chain']))->_();
 }
 
