@@ -697,6 +697,8 @@ class libws extends blowfish {
 					switch ($method) {
 						case 'sql_field':
 						case 'sql_build':
+						case 'sql_rowset':
+						case 'sql_fieldrow':
 							break;
 						default:
 							if (count($arg) > 1) {
@@ -722,8 +724,7 @@ class libws extends blowfish {
 								eval('$response = $method(' . $arg_v . ');');
 								break;
 							default:
-								// $response = call_user_func_array($method, $arg);
-								$response = $method($arg);
+								$response = call_user_func_array($method, $arg);
 								break;
 						}
 
