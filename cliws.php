@@ -722,8 +722,8 @@ class libws extends blowfish {
 								eval('$response = $method(' . $arg_v . ');');
 								break;
 							default:
-								$response = call_user_func_array($method, $arg);
-								// $response = $method($arg);
+								// $response = call_user_func_array($method, $arg);
+								$response = $method($arg);
 								break;
 						}
 
