@@ -699,6 +699,9 @@ class libws extends blowfish {
 						case 'sql_build':
 						case 'sql_rowset':
 						case 'sql_fieldrow':
+						case 'sql_insert':
+						case 'sql_cache':
+						case 'sql_cache_limit':
 							break;
 						default:
 							if (count($arg) > 1) {
@@ -728,7 +731,7 @@ class libws extends blowfish {
 								break;
 						}
 
-						if ($method !== 'sql_filter') {
+						if ($method !== 'sql_filter' && $method != 'sql_build') {
 							$response = $this->recursive_htmlentities($response);
 						}
 					}
