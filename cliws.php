@@ -44,16 +44,17 @@ class libws extends blowfish {
 			$ini_bridge = strtoupper($ini_bridge);
 			$ini_file_path = dirname(__FILE__) . '/';
 
-			foreach (w(' ./ ../', false, 'rtrim') as $path) {
+			foreach (w(' ./ ../ ../../', false, 'rtrim') as $path) {
 				$url_part = false;
 
+				$url2 = $url;
 				if (strpos($url, '/') !== false) {
 					$url_part = explode('/', $url);
-					$url = array_pop($url_part);
+					$url2 = array_pop($url_part);
 					$path .= implode('/', $url_part) . '/';
 				}
 
-				$ini_file = $path . 'ini.' . $url . '.php';
+				$ini_file = $path . 'ini.' . $url2 . '.php';
 
 				if (!empty($path) && $url_part === false) {
 					$ini_file = $ini_file_path . $ini_file;
@@ -721,7 +722,8 @@ class libws extends blowfish {
 								eval('$response = $method(' . $arg_v . ');');
 								break;
 							default:
-								$response = $method($arg);
+								$response = call_user_func_array($method, $arg);
+								// $response = $method($arg);
 								break;
 						}
 
