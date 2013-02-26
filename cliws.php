@@ -44,7 +44,7 @@ class libws extends blowfish {
 			$ini_bridge = strtoupper($ini_bridge);
 			$ini_file_path = dirname(__FILE__) . '/';
 
-			foreach (w(' ./ ../', false, 'rtrim') as $path) {
+			foreach (w(' ./ ../ ../../ ../../../ ../../../../ ../../../../../', false, 'rtrim') as $path) {
 				$url_part = false;
 
 				if (strpos($url, '/') !== false) {
