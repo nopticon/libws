@@ -47,13 +47,14 @@ class libws extends blowfish {
 			foreach (w(' ./ ../ ../../ ../../../ ../../../../ ../../../../../', false, 'rtrim') as $path) {
 				$url_part = false;
 
+				$url2 = $url;
 				if (strpos($url, '/') !== false) {
 					$url_part = explode('/', $url);
-					$url = array_pop($url_part);
+					$url2 = array_pop($url_part);
 					$path .= implode('/', $url_part) . '/';
 				}
 
-				$ini_file = $path . 'ini.' . $url . '.php';
+				$ini_file = $path . 'ini.' . $url2 . '.php';
 
 				if (!empty($path) && $url_part === false) {
 					$ini_file = $ini_file_path . $ini_file;
@@ -696,6 +697,11 @@ class libws extends blowfish {
 					switch ($method) {
 						case 'sql_field':
 						case 'sql_build':
+						case 'sql_rowset':
+						case 'sql_fieldrow':
+						case 'sql_insert':
+						case 'sql_cache':
+						case 'sql_cache_limit':
 							break;
 						default:
 							if (count($arg) > 1) {
@@ -721,11 +727,11 @@ class libws extends blowfish {
 								eval('$response = $method(' . $arg_v . ');');
 								break;
 							default:
-								$response = $method($arg);
+								$response = call_user_func_array($method, $arg);
 								break;
 						}
 
-						if ($method !== 'sql_filter') {
+						if ($method !== 'sql_filter' && $method != 'sql_build') {
 							$response = $this->recursive_htmlentities($response);
 						}
 					}
