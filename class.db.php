@@ -72,72 +72,74 @@ function array_shiftname(&$arr, $unset = false) {
 
 // Database filter layer
 // Idea from http://us.php.net/manual/en/function.sprintf.php#93156
-function sql_filter() {
-	if (!$args = func_get_args()) {
-		return false;
-	}
-	
-	$sql = array_shift($args);
-	
-	if (is_array($sql)) {
-		$sql_ary = w();
-		foreach ($sql as $row) {
-			$sql_ary[] = sql_filter($row, $args);
+if (!function_exists('sql_filter')) {
+	function sql_filter() {
+		if (!$args = func_get_args()) {
+			return false;
 		}
 		
-		return $sql_ary;
-	}
-	
-	$count_args = count($args);
-	$sql = str_replace('%', '[!]', $sql);
-	
-	if (!$count_args || $count_args < 1) {
-		return str_replace('[!]', '%', $sql);
-	}
-	
-	if ($count_args == 1 && is_array($args[0])) {
-		$args = $args[0];
-	}
-	
-	foreach ($args as $i => $arg) {
-		$args[$i] = (strpos($arg, '/***/') !== false) ? $arg : sql_escape($arg);
-	}
-	
-	foreach ($args as $i => $row) {
-		if (strpos($row, 'addquotes') !== false) {
-			$e_row = explode(',', $row);
-			array_shift($e_row);
-			
-			foreach ($e_row as $j => $jr) {
-				$e_row[$j] = "'" . $jr . "'";
-			}
-			
-			$args[$i] = implode(',', $e_row);
-		}
-	}
-	
-	array_unshift($args, str_replace(w('?? ?'), w("%s '%s'"), $sql));
-	
-	// Conditional deletion of lines if input is zero
-	if (strpos($args[0], '-- ') !== false) {
-		$e_sql = explode(nr(), $args[0]);
+		$sql = array_shift($args);
 		
-		$matches = 0;
-		foreach ($e_sql as $i => $row) {
-			$e_sql[$i] = str_replace('-- ', '', $row);
-			if (strpos($row, '%s')) {
-				$matches++;
+		if (is_array($sql)) {
+			$sql_ary = w();
+			foreach ($sql as $row) {
+				$sql_ary[] = sql_filter($row, $args);
 			}
 			
-			if (strpos($row, '-- ') !== false && !$args[$matches]) {
-				unset($e_sql[$i], $args[$matches]);
+			return $sql_ary;
+		}
+		
+		$count_args = count($args);
+		$sql = str_replace('%', '[!]', $sql);
+		
+		if (!$count_args || $count_args < 1) {
+			return str_replace('[!]', '%', $sql);
+		}
+		
+		if ($count_args == 1 && is_array($args[0])) {
+			$args = $args[0];
+		}
+		
+		foreach ($args as $i => $arg) {
+			$args[$i] = (strpos($arg, '/***/') !== false) ? $arg : sql_escape($arg);
+		}
+		
+		foreach ($args as $i => $row) {
+			if (strpos($row, 'addquotes') !== false) {
+				$e_row = explode(',', $row);
+				array_shift($e_row);
+				
+				foreach ($e_row as $j => $jr) {
+					$e_row[$j] = "'" . $jr . "'";
+				}
+				
+				$args[$i] = implode(',', $e_row);
 			}
 		}
 		
-		$args[0] = implode($e_sql);
+		array_unshift($args, str_replace(w('?? ?'), w("%s '%s'"), $sql));
+		
+		// Conditional deletion of lines if input is zero
+		if (strpos($args[0], '-- ') !== false) {
+			$e_sql = explode(nr(), $args[0]);
+			
+			$matches = 0;
+			foreach ($e_sql as $i => $row) {
+				$e_sql[$i] = str_replace('-- ', '', $row);
+				if (strpos($row, '%s')) {
+					$matches++;
+				}
+				
+				if (strpos($row, '-- ') !== false && !$args[$matches]) {
+					unset($e_sql[$i], $args[$matches]);
+				}
+			}
+			
+			$args[0] = implode($e_sql);
+		}
+		
+		return str_replace('[!]', '%', hook('sprintf', $args));
 	}
-	
-	return str_replace('[!]', '%', hook('sprintf', $args));
 }
 
 function sql_insert($table, $insert) {
