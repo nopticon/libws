@@ -72,8 +72,8 @@ function array_shiftname(&$arr, $unset = false) {
 
 // Database filter layer
 // Idea from http://us.php.net/manual/en/function.sprintf.php#93156
-if (!function_exists('sql_filter')) {
-	function sql_filter() {
+if (!function_exists('npi_sql_filter')) {
+	function npi_sql_filter() {
 		if (!$args = func_get_args()) {
 			return false;
 		}
@@ -83,7 +83,7 @@ if (!function_exists('sql_filter')) {
 		if (is_array($sql)) {
 			$sql_ary = w();
 			foreach ($sql as $row) {
-				$sql_ary[] = sql_filter($row, $args);
+				$sql_ary[] = npi_sql_filter($row, $args);
 			}
 			
 			return $sql_ary;
@@ -101,7 +101,7 @@ if (!function_exists('sql_filter')) {
 		}
 		
 		foreach ($args as $i => $arg) {
-			$args[$i] = (strpos($arg, '/***/') !== false) ? $arg : sql_escape($arg);
+			$args[$i] = (strpos($arg, '/***/') !== false) ? $arg : npi_sql_escape($arg);
 		}
 		
 		foreach ($args as $i => $row) {
@@ -142,35 +142,35 @@ if (!function_exists('sql_filter')) {
 	}
 }
 
-function sql_insert($table, $insert) {
-	$sql = 'INSERT INTO _' . $table . sql_build('INSERT', $insert);
-	return sql_query_nextid($sql);
+function npi_sql_insert($table, $insert) {
+	$sql = 'INSERT INTO _' . $table . npi_sql_build('INSERT', $insert);
+	return npi_sql_query_nextid($sql);
 }
 
-function sql_query($sql) {
-	global $db;
+function npi_sql_query($sql) {
+	global $npi_db;
 
-	return $db->query($sql);
+	return $npi_db->query($sql);
 }
 
-function sql_transaction($status = 'begin') {
-	global $db;
+function npi_sql_transaction($status = 'begin') {
+	global $npi_db;
 	
-	return $db->transaction($status);
+	return $npi_db->transaction($status);
 }
 
-function sql_desc($table) {
-	global $db;
+function npi_sql_desc($table) {
+	global $npi_db;
 
-	return $db->desc($table);
+	return $npi_db->desc($table);
 }
 
-function sql_field($sql, $field, $def = false) {
-	global $db;
+function npi_sql_field($sql, $field, $def = false) {
+	global $npi_db;
 	
-	$db->query($sql);
-	$response = $db->fetchfield($field);
-	$db->freeresult();
+	$npi_db->query($sql);
+	$response = $npi_db->fetchfield($field);
+	$npi_db->freeresult();
 	
 	if ($response === false) {
 		$response = $def;
@@ -179,31 +179,31 @@ function sql_field($sql, $field, $def = false) {
 	return $response;
 }
 
-function sql_fieldrow($sql, $result_type = MYSQL_ASSOC) {
-	global $db;
+function npi_sql_fieldrow($sql, $result_type = MYSQL_ASSOC) {
+	global $npi_db;
 	
-	$db->query($sql);
+	$npi_db->query($sql);
 	
 	$response = false;
-	if ($row = $db->fetchrow($result_type)) {
-		$row['_numrows'] = $db->numrows();
+	if ($row = $npi_db->fetchrow($result_type)) {
+		$row['_numrows'] = $npi_db->numrows();
 		$response = array_change_key_case($row, CASE_LOWER);
 	}
-	$db->freeresult();
+	$npi_db->freeresult();
 	
 	return $response;
 }
 
-function sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQL_ASSOC) {
-	global $db;
+function npi_sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQL_ASSOC) {
+	global $npi_db;
 	
-	$db->query($sql);
+	$npi_db->query($sql);
 
-	if (!empty($db->message)) {
-		return $db->message;
+	if (!empty($npi_db->message)) {
+		return $npi_db->message;
 	}
 
-	if (!$data = $db->fetchrowset($type)) {
+	if (!$data = $npi_db->fetchrowset($type)) {
 		return false;
 	}
 	
@@ -222,73 +222,73 @@ function sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQL
 			}
 		}
 	}
-	$db->freeresult();
+	$npi_db->freeresult();
 	
 	return $arr;
 }
 
-function sql_truncate($table) {
+function npi_sql_truncate($table) {
 	$sql = 'TRUNCATE TABLE ??';
 	
-	return sql_query(sql_filter($sql, $table));
+	return npi_sql_query(npi_sql_filter($sql, $table));
 }
 
-function sql_total($table) {
-	return sql_field("SHOW TABLE STATUS LIKE '" . $table . "'", 'Auto_increment', 0);
+function npi_sql_total($table) {
+	return npi_sql_field("SHOW TABLE STATUS LIKE '" . $table . "'", 'Auto_increment', 0);
 }
 
-function sql_close() {
-	global $db;
+function npi_sql_close() {
+	global $npi_db;
 	
-	if ($db->close()) {
+	if ($npi_db->close()) {
 		return true;
 	}
 	
 	return false;
 }
 
-function sql_queries() {
-	global $db;
+function npi_sql_queries() {
+	global $npi_db;
 	
-	return $db->num_queries();
+	return $npi_db->num_queries();
 }
 
-function sql_query_nextid($sql) {
-	global $db;
+function npi_sql_query_nextid($sql) {
+	global $npi_db;
 	
-	$db->query($sql);
+	$npi_db->query($sql);
 
-	return $db->nextid();
+	return $npi_db->nextid();
 }
 
-function sql_nextid() {
-	global $db;
+function npi_sql_nextid() {
+	global $npi_db;
 	
-	return $db->nextid();
+	return $npi_db->nextid();
 }
 
-function sql_affected($sql) {
-	global $db;
+function npi_sql_affected($sql) {
+	global $npi_db;
 	
-	$db->query($sql);
+	$npi_db->query($sql);
 	
-	return $db->affectedrows();
+	return $npi_db->affectedrows();
 }
 
-function sql_affectedrows() {
-	global $db;
+function npi_sql_affectedrows() {
+	global $npi_db;
 	
-	return $db->affectedrows();
+	return $npi_db->affectedrows();
 }
 
-function sql_escape($sql) {
-	global $db;
+function npi_sql_escape($sql) {
+	global $npi_db;
 	
-	return $db->escape($sql);
+	return $npi_db->escape($sql);
 }
 
-function sql_build($cmd, $a, $b = false) {
-	global $db;
+function npi_sql_build($cmd, $a, $b = false) {
+	global $npi_db;
 	
 	if (is_object($a)) {
 		$_a = w();
@@ -299,32 +299,30 @@ function sql_build($cmd, $a, $b = false) {
 		$a = $_a;
 	}
 	
-	return $db->build($cmd, $a, $b);
+	return $npi_db->build($cmd, $a, $b);
 }
 
-function sql_cache($sql, $sid = '', $private = true) {
-	global $db;
+function npi_sql_cache($sql, $sid = '', $private = true) {
+	global $npi_db;
 	
-	return $db->cache($sql, $sid, $private);
+	return $npi_db->cache($sql, $sid, $private);
 }
 
-function sql_cache_limit(&$arr, $start, $end = 0) {
-	global $db;
+function npi_sql_cache_limit(&$arr, $start, $end = 0) {
+	global $npi_db;
 	
-	return $db->cache_limit($arr, $start, $end);
+	return $npi_db->cache_limit($arr, $start, $end);
 }
 
-function sql_numrows(&$a) {
+function npi_sql_numrows(&$a) {
 	$response = $a['_numrows'];
 	unset($a['_numrows']);
 	
 	return $response;
 }
 
-function sql_history() {
-	global $db;
+function npi_sql_history() {
+	global $npi_db;
 	
-	return $db->history();
+	return $npi_db->history();
 }
-
-?>

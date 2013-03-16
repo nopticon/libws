@@ -82,7 +82,7 @@ class database {
 	*/
 	public function desc($table) {
 		$sql = 'DESCRIBE ??';
-		return sql_rowset(sql_filter($sql, $table), false, 'COLUMN_NAME');
+		return npi_sql_rowset(npi_sql_filter($sql, $table), false, 'COLUMN_NAME');
 	}
 	
 	public function query($query = '', $transaction = false) {
@@ -328,7 +328,7 @@ class database {
 			$filter_values[] = $user->d('user_id');
 		}
 		
-		$query = sql_field(sql_filter($sql, $filter_values), 'cache_query', '');
+		$query = npi_sql_field(npi_sql_filter($sql, $filter_values), 'cache_query', '');
 		
 		if (!empty($sid) && empty($query)) {
 			_fatal();

@@ -688,25 +688,27 @@ class libws extends blowfish {
 					return false;
 				}
 
-				global $db;
+				global $npi_db;
 
 				require_once('class.mysql.php');
-				$db = new database($connect);
+				$npi_db = new database($connect);
 
-				if (empty($db->message)) {
+				if (empty($npi_db->message)) {
+					$method = 'npi_' . $method;
+
 					switch ($method) {
-						case 'sql_field':
-						case 'sql_build':
-						case 'sql_rowset':
-						case 'sql_fieldrow':
-						case 'sql_insert':
-						case 'sql_cache':
-						case 'sql_cache_limit':
+						case 'npi_sql_field':
+						case 'npi_sql_build':
+						case 'npi_sql_rowset':
+						case 'npi_sql_fieldrow':
+						case 'npi_sql_insert':
+						case 'npi_sql_cache':
+						case 'npi_sql_cache_limit':
 							break;
 						default:
 							if (count($arg) > 1) {
 								$sql = array_shift($arg);
-								$arg = sql_filter($sql, $arg);
+								$arg = npi_sql_filter($sql, $arg);
 							}
 							break;
 					}
@@ -715,8 +717,8 @@ class libws extends blowfish {
 
 					if ($response === false) {
 						switch ($method) {
-							case 'sql_field':
-							case 'sql_build':
+							case 'npi_sql_field':
+							case 'npi_sql_build':
 								extract($arg, EXTR_PREFIX_ALL, 'sf');
 
 								$arg_v = '';
@@ -731,7 +733,7 @@ class libws extends blowfish {
 								break;
 						}
 
-						if ($method !== 'sql_filter' && $method != 'sql_build') {
+						if ($method !== 'npi_sql_filter' && $method != 'npi_sql_build') {
 							$response = $this->recursive_htmlentities($response);
 						}
 					}
