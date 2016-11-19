@@ -179,7 +179,7 @@ function npi_sql_field($sql, $field, $def = false) {
 	return $response;
 }
 
-function npi_sql_fieldrow($sql, $result_type = MYSQL_ASSOC) {
+function npi_sql_fieldrow($sql, $result_type = MYSQLI_ASSOC) {
 	global $npi_db;
 	
 	$npi_db->query($sql);
@@ -194,9 +194,9 @@ function npi_sql_fieldrow($sql, $result_type = MYSQL_ASSOC) {
 	return $response;
 }
 
-function npi_sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQL_ASSOC) {
+function npi_sql_rowset($sql, $a = false, $b = false, $global = false, $type = MYSQLI_ASSOC) {
 	global $npi_db;
-	
+
 	$npi_db->query($sql);
 
 	if (!empty($npi_db->message)) {
@@ -223,7 +223,7 @@ function npi_sql_rowset($sql, $a = false, $b = false, $global = false, $type = M
 		}
 	}
 	$npi_db->freeresult();
-	
+
 	return $arr;
 }
 

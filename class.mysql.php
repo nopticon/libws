@@ -251,7 +251,7 @@ class database {
 		return false;
 	}
 	
-	public function fetchrow($result_type = MYSQL_BOTH) {
+	public function fetchrow($result_type = MYSQLI_BOTH) {
 		if ($this->result && is_object($this->result)) {
 			return $this->result->fetch_array($result_type);
 		}
@@ -259,7 +259,7 @@ class database {
 		return false;
 	}
 	
-	public function fetchrowset($result_type = MYSQL_BOTH) {
+	public function fetchrowset($result_type = MYSQLI_BOTH) {
 		if ($this->result && is_object($this->result)) {
 			$result = array();
 			while ($row = $this->result->fetch_array($result_type)) {
